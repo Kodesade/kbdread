@@ -4,12 +4,16 @@
 - Human-readable keys log
 - Key combinations log
 - Hide `SYN_REPORT`, `EV_MSC` and `release` events
+- Waiting for one or more keys
 
 ## Running
-```sh
-$ ruby reader.rb {index}
+Modify this line with the index at the end of the file name `/dev/input/event` from the target device:
+```ruby
+device_event_id = 10
 ```
-**index** : id from `/dev/input/event` device file
+```sh
+$ ruby test.rb
+```
 
 ## Example
 ![example screenshot](./example.png)
