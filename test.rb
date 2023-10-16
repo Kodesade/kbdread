@@ -1,11 +1,18 @@
 require_relative 'reader'
 
-log = -> (events) {
-  next if events.empty?
-  puts events.keys.map{ _1.length == 1 ? _1.downcase : _1.capitalize }.join("+")
-}
-device_event_id = 10
-keyboard = KeyboardInput.new(device_event_id,_evproc: log)
+lock = [true]
+quitbind = KeyBind.create("LeftControl", "q"){ lock.replace([false]) }
 
-keyboard.wait(*%w[leftcontrol leftshift q])
-puts "{===== END =====}"
+handler = EventHandler.create(log: false)
+device_event_id = 10
+listener = KeyListener.listen(device_event_id,handler)
+handler.bind(quitbind)
+
+while lock[0]
+  i ||= 0 
+  puts "Time elapsed : %s" % i
+  i += 1
+  sleep 1
+end
+
+puts "End!"

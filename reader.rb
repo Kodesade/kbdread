@@ -1,7 +1,5 @@
 require 'device_input'
 
-LOCK=Thread::Mutex.new
-
 class BadEvent < StandardError
   attr_reader :event
   def initialize(event)
@@ -16,6 +14,10 @@ class EventKey
       raise BadEvent.new(event)
     end
     @event = event
+  end
+  
+  def raw()
+    @event
   end
   
   def key
@@ -51,48 +53,80 @@ class EventKey
   end
 end
 
-class KeyboardInput
-  
-  def initialize(i,_evproc:nil)
-    @main_thread = Thread.current
-    @event_file = "/dev/input/event%s" % i
-    @events = {}
-    @wait_list = []
-    @handler = event_handler()
-    @evproc = _evproc
+class KeyBind
+  private_class_method :new
+  def initialize(keys,callback)
+    @keys = keys.map{|key| key.upcase}
+    @callback = callback
   end
   
-  def wait(*keys)
-    keys.map!{|key| key.upcase}
-    LOCK.synchronize { @wait_list = keys }
-    sleep
+  def self.create(*keys,&callback)
+    new(keys,callback)
   end
   
-  private
+  def try(keys)
+    if keys.keys.map{|key| key.upcase} == @keys
+      @callback.call
+      return true
+    else 
+      return false
+    end
+  end
+end
+
+class EventHandler
+  private_class_method :new
   
-  def event_handler()
+  def initialize(log)
+    @log = log
+    @keybinds = []
+    @keys = {}
+  end
+  
+  def bind(keybind)
+    @keybinds << keybind
+    self
+  end
+  
+  def give(event)
+    if event.pressed?
+      @keys[event.key] = event.raw
+    else
+      @keys.delete(event.key)
+    end
+    
+    if @log and @keys.length > 0
+      puts @keys.keys.join("+")
+    end
+    
+    @keybinds.delete_if {|keybind| keybind.try(@keys)}
+  end
+  
+  def self.create(log:false)
+    if @instance then return @instance end
+    @instance = new(log)
+  end
+end
+
+class KeyListener
+  private_class_method :new 
+  def self.listen(idx,handler)
+    if @instance then return @instance end
+    @instance = new(idx,handler)
+  end
+  
+  def initialize(idx,handler)
     Thread.new do
-      File.open(@event_file,'r') do |dev|
-        DeviceInput.read_loop(dev) do |event|
-          begin
-            key = EventKey.new(event)
-          rescue BadEvent
-            next
-          end
-          
-          if key.pressed?
-            @events[key.key.upcase] = key.press_type
-          else
-            @events.delete(key.key.upcase)
-          end
-          if @evproc and @evproc.respond_to? :call
-            @evproc.call(@events)
-          end
-          LOCK.synchronize {
-            @main_thread.wakeup if @wait_list.all?{|key| @events.keys.include?(key) }
-          }
-        end
+    File.open("/dev/input/event%s" % idx, 'r') do |dev|
+    DeviceInput.read_loop(dev) do |event|
+      begin 
+        key = EventKey.new(event) 
+      rescue BadEvent 
+        next
       end
+      handler.give(key)
+    end
+    end
     end
   end
 end
