@@ -16,6 +16,9 @@ $ ruby test.rb
 ```
 
 ## Example
+> [!WARNING]
+> This screenshot is from an older version of this program.
+
 ![example screenshot](./example.png)
 
 ## Thanks
